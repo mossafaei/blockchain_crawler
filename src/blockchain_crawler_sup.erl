@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, random_val_predicate/1]).
 %% Supervisor callbacks
 -export([init/1]).
 
@@ -90,3 +90,7 @@ create_blockchain_sup_opts(Number) ->
         {update_dir, "update"},
         {base_dir, BaseDir}
     ].
+
+random_val_predicate(Peer) ->
+    not libp2p_peer:is_stale(Peer, timer:minutes(360)) andalso
+        maps:get(<<"release_version">>, libp2p_peer:signed_metadata(Peer), undefined) /= undefined.
