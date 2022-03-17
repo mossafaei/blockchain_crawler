@@ -43,7 +43,7 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 start_link(Args) ->
-    gen_server:start_link({local, ?SERVER}, ?SERVER, Args, []).
+    gen_server:start_link({local, append_two_values(?SERVER, proplists:get_value(crawler_num, Args))}, ?SERVER, Args, []).
 
 %%--------------------------------------------------------------------
 %% @doc returns the ets TID for the blockchain swarm
@@ -90,8 +90,8 @@ gossip_peers() ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 init(Args) ->
-    lager:info("~p init with ~p", [?SERVER, Args]),
-    {ok, Pid} = libp2p_swarm:start(?SWARM_NAME, Args),
+    lager:info("~p init with ~p", [append_two_values(?SWARM_NAME, proplists:get_value(crawler_num, Args)), Args]),
+    {ok, Pid} = libp2p_swarm:start(append_two_values(?SWARM_NAME, proplists:get_value(crawler_num, Args)), Args),
     ok = libp2p_swarm:listen(Pid, "/ip4/0.0.0.0/tcp/0"),
     true = erlang:link(Pid),
     {ok, #state{swarm=Pid}}.
@@ -123,3 +123,6 @@ terminate(_Reason, _State) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+append_two_values(Name, Number) ->
+    list_to_atom(atom_to_list(Name) ++ Number).

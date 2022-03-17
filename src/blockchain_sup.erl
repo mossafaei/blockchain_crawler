@@ -22,8 +22,8 @@
     modules => [I]
 }).
 
--define(WORKER(I, Args), #{
-    id => I,
+-define(WORKER(I, Args, Number), #{
+    id => {I, Number},
     start => {I, start_link, Args},
     restart => permanent,
     shutdown => 5000,
@@ -31,14 +31,14 @@
     modules => [I]
 }).
 
--define(WORKER(I, Mod, Args), #{
-    id => I,
-    start => {Mod, start_link, Args},
-    restart => permanent,
-    shutdown => 5000,
-    type => worker,
-    modules => [I]
-}).
+%-define(WORKER(I, Mod, Args), #{
+%    id => I,
+%    start => {Mod, start_link, Args},
+%    restart => permanent,
+%    shutdown => 5000,
+%    type => worker,
+%    modules => [I]
+%}).
 
 -define(FLAGS, #{
     strategy => rest_for_one,
@@ -53,7 +53,7 @@
 %% ------------------------------------------------------------------
 
 start_link(Args) ->
-    supervisor:start_link({local, ?MODULE }, ?MODULE, Args).
+    supervisor:start_link({local, list_to_atom(atom_to_list(?MODULE) ++ proplists:get_value(crawler_num, Args)) }, ?MODULE, Args).
 
 %% ------------------------------------------------------------------
 %% Supervisor callbacks
@@ -79,13 +79,14 @@ init(Args) ->
     BaseDir = proplists:get_value(base_dir, Args, "data"),
 
     %blockchain_utils:init_var_cache(),
-    e2qc:setup(var_cache, []),
+    %e2qc:setup(var_cache, []),
 
     %% allow the parent app to change this if it needs to.
     %MetadataFun = application:get_env(blockchain, metadata_fun,
      %                                 fun blockchain_worker:signed_metadata_fun/0),
     SwarmWorkerOpts =
         [
+         {crawler_num, proplists:get_value(crawler_num, Args)},
          {key, proplists:get_value(key, Args)},
          {base_dir, BaseDir},
          {libp2p_nat, [{enabled, application:get_env(blockchain_crawler, enable_nat, true)}]},
@@ -112,7 +113,7 @@ init(Args) ->
 
     ChildSpecs =
         [
-         ?WORKER(blockchain_swarm, [SwarmWorkerOpts])
+         ?WORKER(blockchain_swarm, [SwarmWorkerOpts], proplists:get_value(crawler_num, Args))
         ],
     {ok, {?FLAGS, ChildSpecs}}.
 

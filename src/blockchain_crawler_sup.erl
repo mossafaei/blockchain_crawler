@@ -8,8 +8,8 @@
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
--define(SUP(I, Args), #{
-    id => I,
+-define(SUP(I, Args, Number), #{
+    id => {I, Number},
     start => {I, start_link, Args},
     restart => permanent,
     shutdown => 5000,
@@ -36,12 +36,10 @@ init([]) ->
 
     SupFlags = #{strategy => one_for_all, intensity => 0, period => 1},
 
-    BlockchainOpts1 = create_blockchain_sup_opts("1"),
+    CrawlerNum = application:get_env(blockchain_crawler, number_of_crawlers, 1),
     %{ok, NodePort} = application:get_env(blockchain_node, jsonrpc_port),
     {ok,
-        {SupFlags, [
-            ?SUP(blockchain_sup, [BlockchainOpts1])
-        ]}}.
+        {SupFlags, blockchain_sup_generator(CrawlerNum) }}.
 
 create_blockchain_sup_opts(Number) ->
     ok = libp2p_crypto:set_network(application:get_env(blockchain_crawler, network, mainnet)),
@@ -53,9 +51,9 @@ create_blockchain_sup_opts(Number) ->
             _ -> []
         end,
 
-    BaseDir = application:get_env(blockchain_crawler, base_dir, "data"),
-    %%BaseDir = "data" ++ Number,
-    SwarmKey = filename:join([BaseDir, "blockchain_node", "swarm_key"]),
+    %%BaseDir = application:get_env(blockchain_crawler, base_dir, "data"),
+    BaseDir = "data" ++ Number,
+    SwarmKey = filename:join([BaseDir, "blockchain_crawler", "swarm_key"]),
     ok = filelib:ensure_dir(SwarmKey),
     {PublicKey, ECDHFun, SigFun} =
         case libp2p_crypto:load_keys(SwarmKey) of
@@ -82,7 +80,7 @@ create_blockchain_sup_opts(Number) ->
     Port = application:get_env(blockchain_crawler, port, 0),
     MaxInboundConnections = application:get_env(blockchain_crawler, max_inbound_connections, 10),
     [
-        {number_sup, Number},
+        {crawler_num, Number},
         {key, {PublicKey, SigFun, ECDHFun}},
         {seed_nodes, SeedNodes ++ SeedAddresses},
         {max_inbound_connections, MaxInboundConnections},
@@ -90,6 +88,13 @@ create_blockchain_sup_opts(Number) ->
         {update_dir, "update"},
         {base_dir, BaseDir}
     ].
+
+
+blockchain_sup_generator(Number) -> 
+    [
+        ?SUP(blockchain_sup, [create_blockchain_sup_opts(integer_to_list(X))], X)
+    || 
+        X <- lists:seq(1, Number)].
 
 random_val_predicate(Peer) ->
     not libp2p_peer:is_stale(Peer, timer:minutes(360)) andalso
