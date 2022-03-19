@@ -17,6 +17,15 @@
     modules => [I]
 }).
 
+-define(SUP(I, Args), #{
+    id => I,
+    start => {I, start_link, Args},
+    restart => permanent,
+    shutdown => 5000,
+    type => supervisor,
+    modules => [I]
+}).
+
 -define(WORKER(I, Args), ?WORKER(I, I, Args)).
 -define(WORKER(I, M, Args), #{
     id => I,
@@ -38,8 +47,10 @@ init([]) ->
 
     CrawlerNum = application:get_env(blockchain_crawler, number_of_crawlers, 1),
     %{ok, NodePort} = application:get_env(blockchain_node, jsonrpc_port),
+    ChildSpecs = blockchain_sup_generator(CrawlerNum) ++ [?SUP(peer_crawler_sup, [[{superRef, self()}]])],
     {ok,
-        {SupFlags, blockchain_sup_generator(CrawlerNum) }}.
+        {SupFlags, ChildSpecs}
+    }.
 
 create_blockchain_sup_opts(Number) ->
     ok = libp2p_crypto:set_network(application:get_env(blockchain_crawler, network, mainnet)),
