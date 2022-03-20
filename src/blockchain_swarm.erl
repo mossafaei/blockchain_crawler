@@ -90,10 +90,11 @@ gossip_peers() ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 init(Args) ->
+    timer:sleep(2000),
     lager:info("~p init with ~p", [append_two_values(?SWARM_NAME, proplists:get_value(crawler_num, Args)), Args]),
     {ok, Pid} = libp2p_swarm:start(append_two_values(?SWARM_NAME, proplists:get_value(crawler_num, Args)), Args),
-    ok = libp2p_swarm:listen(Pid, "/ip4/0.0.0.0/tcp/0"),
     true = erlang:link(Pid),
+    self() ! {start_listen, Pid},
     {ok, #state{swarm=Pid}}.
 
 handle_call(_Msg, _From, State) ->
@@ -107,6 +108,11 @@ handle_cast(_Msg, State) ->
 handle_info({'EXIT', Swarm, Reason} , #state{swarm=Swarm}=State) ->
     lager:error("swarm ~p exited: ~p", [Swarm, Reason]),
     {stop, swarm_exit, State};
+
+handle_info({start_listen, Pid}, State) ->
+    ok = libp2p_swarm:listen(Pid, "/ip4/0.0.0.0/tcp/0"),
+    {noreply, State};
+
 handle_info(_Msg, State) ->
     lager:warning("rcvd unknown info msg: ~p", [_Msg]),
     {noreply, State}.

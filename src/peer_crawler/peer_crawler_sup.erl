@@ -31,7 +31,7 @@ start_link(Args) ->
 %% 
 init(Args) ->
     CrawlerNum = application:get_env(blockchain_crawler, number_of_crawlers, 1),
-    MarkTID = ets:new(mark_table, [public, named_table]),
+    MarkTID = ets:new(mark_table, [public, named_table, {read_concurrency, true}, {write_concurrency, true}]),
 
     os:cmd("rm -rf data*/ip.txt"),
 

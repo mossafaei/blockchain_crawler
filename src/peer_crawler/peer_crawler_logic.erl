@@ -57,8 +57,8 @@ for(LST, SwarmTID, MarkTID, IpFile, P2PAddress) ->
 dfs_on_peers(_, _, _, _, 0) -> ok;
 dfs_on_peers(SwarmTID, MarkTID, IpFile, P2PAddress, MaxTry) ->
     %io:format("Start DFS on the node: " ++ P2PAddress ++ "\n"),
-    lager:info("Start DFS on the node: ~p", [P2PAddress]),
-    timer:sleep(4000),
+    lager:info("~p Start DFS on the node: ~p", [SwarmTID ,P2PAddress]),
+    timer:sleep(3000),
     refresh_peerbook(SwarmTID, P2PAddress),
     timer:sleep(3000),
     case find_peer(SwarmTID, P2PAddress) of
