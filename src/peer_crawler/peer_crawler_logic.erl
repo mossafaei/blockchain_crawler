@@ -10,7 +10,8 @@
     get_connected_peers/2,
     find_peer/2,
     check_dfs_condition/4,
-    for/5
+    for/5,
+    while/4
 ]).
 
 - spec refresh_peerbook(ets:tab(), string()) -> ok.
@@ -72,3 +73,40 @@ dfs_on_peers(SwarmTID, MarkTID, IpFile, P2PAddress, MaxTry) ->
         _ -> dfs_on_peers(SwarmTID, MarkTID, IpFile, P2PAddress, MaxTry - 1)
     end,
     ok.
+
+
+bfs_apply_lookup(SearchPeer, MarkTID, Que) ->
+    case ets:lookup(MarkTID, SearchPeer) of
+        %% If the address is not available in Mark table
+        [] -> esq:enq(SearchPeer, Que);
+        
+        %% If the address is available in Mark table
+         _ -> ok
+    end.
+
+while(SwarmTID, MarkTID, IpFile, Que) ->
+    case esq:deq(Que) of
+        [#{payload := P2PAddress}] -> 
+            lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
+            timer:sleep(3000),
+            refresh_peerbook(SwarmTID, P2PAddress),
+            timer:sleep(3000),
+
+            case find_peer(SwarmTID, P2PAddress) of
+                {ok, Peer} -> 
+                            [BestAddress| _] = libp2p_transport:sort_addrs(SwarmTID, libp2p_peer:listen_addrs(Peer)),
+                            %ets:insert(IpFile, {P2PAddress, BestAddress}),
+                            io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
+                            ets:insert(MarkTID, {P2PAddress, true}),
+                            PeerList = get_connected_peers(SwarmTID, P2PAddress),
+                            lists:foreach(
+                                fun(SearchPeer) ->
+                                    bfs_apply_lookup(SearchPeer, MarkTID, Que)
+                                end
+                            , PeerList);
+                _ -> ok
+            end;
+        _ -> ok
+    end,
+
+    while(SwarmTID, MarkTID, IpFile, Que).

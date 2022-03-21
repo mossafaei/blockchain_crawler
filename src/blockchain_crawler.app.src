@@ -33,7 +33,8 @@
     exor_filter,
     merkerl,
     jsx,
-    erbloom
+    erbloom,
+    esq
    ]},
   {env,[]},
   {modules, []},

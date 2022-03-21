@@ -48,13 +48,20 @@ init(Args) ->
     {ok, Peer} = libp2p_peerbook:get(PeerBook, libp2p_swarm:pubkey_bin(SwarmTID)),
     Bin = libp2p_peer:pubkey_bin(Peer),
     P2PAdress = libp2p_crypto:pubkey_bin_to_p2p(Bin),
-    self() ! {start_crawler, SwarmTID, MarkTID, IpFile, P2PAdress},
+
+    Id = proplists:get_value(id, Args),
+    {ok, Que} = esq:new("data" ++ integer_to_list(Id) ++ "/queue", [{capacity, 10}]),
+
+    ok = esq:enq(P2PAdress, Que),
+
+    self() ! {start_crawler, SwarmTID, MarkTID, IpFile, Que},
     
     {ok, state}.
 
-handle_info({start_crawler, SwarmTID, MarkTID, IpFile, P2PAdress}, State) ->
+handle_info({start_crawler, SwarmTID, MarkTID, IpFile, Que}, State) ->
     timer:sleep(15000),
-    peer_crawler_logic:dfs_on_peers(SwarmTID, MarkTID, IpFile, P2PAdress, 3).
+    %peer_crawler_logic:dfs_on_peers(SwarmTID, MarkTID, IpFile, P2PAdress, 3).
+    peer_crawler_logic:while(SwarmTID, MarkTID, IpFile, Que).
 
 
 %%

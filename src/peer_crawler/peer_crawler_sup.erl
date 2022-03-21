@@ -31,9 +31,10 @@ start_link(Args) ->
 %% 
 init(Args) ->
     CrawlerNum = application:get_env(blockchain_crawler, number_of_crawlers, 1),
+    application:ensure_all_started(esq),
     MarkTID = ets:new(mark_table, [public, named_table, {read_concurrency, true}, {write_concurrency, true}]),
 
-    os:cmd("rm -rf data*/ip.txt"),
+    os:cmd("rm -rf data*/ip.txt data*/queue"),
 
     SupFlags = #{strategy => one_for_one,
                  intensity => 0,
