@@ -11,7 +11,7 @@
     find_peer/2,
     check_dfs_condition/4,
     for/5,
-    while/4
+    while/5
 ]).
 
 - spec refresh_peerbook(ets:tab(), string()) -> ok.
@@ -84,7 +84,30 @@ bfs_apply_lookup(SearchPeer, MarkTID, Que) ->
          _ -> ok
     end.
 
-while(SwarmTID, MarkTID, IpFile, Que) ->
+try_in_bfs(1, _, _, _, _, _) -> ok;
+try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que) ->
+    
+    case find_peer(SwarmTID, P2PAddress) of
+        {ok, Peer} -> 
+                    [BestAddress| _] = libp2p_transport:sort_addrs(SwarmTID, libp2p_peer:listen_addrs(Peer)),
+                    %ets:insert(IpFile, {P2PAddress, BestAddress}),
+                    io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
+                    ets:insert(MarkTID, {P2PAddress, true}),
+                    PeerList = get_connected_peers(SwarmTID, P2PAddress),
+                    lists:foreach(
+                        fun(SearchPeer) ->
+                            bfs_apply_lookup(SearchPeer, MarkTID, Que)
+                        end
+                    , PeerList);
+        _ -> 
+            lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
+            timer:sleep(3000),
+            refresh_peerbook(SwarmTID, P2PAddress),
+            timer:sleep(3000),
+            try_in_bfs(MaxTry - 1, P2PAddress, MarkTID, SwarmTID, IpFile, Que)
+    end.
+
+while(SwarmTID, MarkTID, IpFile, Que, MaxTry) ->
     case esq:deq(Que) of
         [#{payload := P2PAddress}] -> 
             lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
@@ -92,21 +115,8 @@ while(SwarmTID, MarkTID, IpFile, Que) ->
             refresh_peerbook(SwarmTID, P2PAddress),
             timer:sleep(3000),
 
-            case find_peer(SwarmTID, P2PAddress) of
-                {ok, Peer} -> 
-                            [BestAddress| _] = libp2p_transport:sort_addrs(SwarmTID, libp2p_peer:listen_addrs(Peer)),
-                            %ets:insert(IpFile, {P2PAddress, BestAddress}),
-                            io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
-                            ets:insert(MarkTID, {P2PAddress, true}),
-                            PeerList = get_connected_peers(SwarmTID, P2PAddress),
-                            lists:foreach(
-                                fun(SearchPeer) ->
-                                    bfs_apply_lookup(SearchPeer, MarkTID, Que)
-                                end
-                            , PeerList);
-                _ -> ok
-            end;
+            try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que);
         _ -> ok
     end,
 
-    while(SwarmTID, MarkTID, IpFile, Que).
+    while(SwarmTID, MarkTID, IpFile, Que, MaxTry).
