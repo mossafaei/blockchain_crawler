@@ -99,23 +99,37 @@ try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que) ->
                             bfs_apply_lookup(SearchPeer, MarkTID, Que)
                         end
                     , PeerList);
-        _ -> 
-            lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
-            timer:sleep(3000),
-            refresh_peerbook(SwarmTID, P2PAddress),
-            timer:sleep(3000),
-            try_in_bfs(MaxTry - 1, P2PAddress, MarkTID, SwarmTID, IpFile, Que)
+        _ ->
+            case ets:lookup(MarkTID, P2PAddress) of
+                %% If the address is not available in Mark table
+                [] ->  
+                    lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
+                    timer:sleep(3000),
+                    refresh_peerbook(SwarmTID, P2PAddress),
+                    timer:sleep(3000),
+                    try_in_bfs(MaxTry - 1, P2PAddress, MarkTID, SwarmTID, IpFile, Que);
+                
+                %% If the address is available in Mark table
+                 _ -> ok
+            end
     end.
 
 while(SwarmTID, MarkTID, IpFile, Que, MaxTry) ->
     case esq:deq(Que) of
-        [#{payload := P2PAddress}] -> 
-            lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
-            timer:sleep(3000),
-            refresh_peerbook(SwarmTID, P2PAddress),
-            timer:sleep(3000),
-
-            try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que);
+        [#{payload := P2PAddress}] ->
+            case ets:lookup(MarkTID, P2PAddress) of
+                %% If the address is not available in Mark table
+                [] ->  
+                    lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
+                    timer:sleep(3000),
+                    refresh_peerbook(SwarmTID, P2PAddress),
+                    timer:sleep(3000),
+        
+                    try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que);
+                
+                %% If the address is available in Mark table
+                 _ -> ok
+            end;
         _ -> ok
     end,
 
