@@ -89,16 +89,33 @@ try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que) ->
     
     case find_peer(SwarmTID, P2PAddress) of
         {ok, Peer} -> 
-                    [BestAddress| _] = libp2p_transport:sort_addrs(SwarmTID, libp2p_peer:listen_addrs(Peer)),
-                    %ets:insert(IpFile, {P2PAddress, BestAddress}),
-                    io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
-                    ets:insert(MarkTID, {P2PAddress, true}),
-                    PeerList = get_connected_peers(SwarmTID, P2PAddress),
-                    lists:foreach(
-                        fun(SearchPeer) ->
-                            bfs_apply_lookup(SearchPeer, MarkTID, Que)
-                        end
-                    , PeerList);
+                    AllAddress = libp2p_transport:sort_addrs(SwarmTID, libp2p_peer:listen_addrs(Peer)),
+                    case length(AllAddress) of
+                        0 ->
+                            case ets:lookup(MarkTID, P2PAddress) of
+                                %% If the address is not available in Mark table
+                                [] ->  
+                                    lager:info("~p Start BFS on the node: ~p", [SwarmTID ,P2PAddress]),
+                                    timer:sleep(3000),
+                                    refresh_peerbook(SwarmTID, P2PAddress),
+                                    timer:sleep(3000),
+                                    try_in_bfs(MaxTry - 1, P2PAddress, MarkTID, SwarmTID, IpFile, Que);
+                                
+                                %% If the address is available in Mark table
+                                 _ -> ok
+                            end;
+                        _ ->
+                            [BestAddress | _] = AllAddress,
+                            %ets:insert(IpFile, {P2PAddress, BestAddress}),
+                            io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
+                            ets:insert(MarkTID, {P2PAddress, true}),
+                            PeerList = get_connected_peers(SwarmTID, P2PAddress),
+                            lists:foreach(
+                                fun(SearchPeer) ->
+                                    bfs_apply_lookup(SearchPeer, MarkTID, Que)
+                                end
+                            , PeerList)
+                    end;
         _ ->
             case ets:lookup(MarkTID, P2PAddress) of
                 %% If the address is not available in Mark table
