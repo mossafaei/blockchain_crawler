@@ -107,7 +107,8 @@ try_in_bfs(MaxTry, P2PAddress, MarkTID, SwarmTID, IpFile, Que) ->
                         _ ->
                             [BestAddress | _] = AllAddress,
                             %ets:insert(IpFile, {P2PAddress, BestAddress}),
-                            io:format(IpFile, "~s~n", [P2PAddress ++ ": " ++ BestAddress]),
+			    {Part1, Part2, _} = erlang:timestamp(),
+			    io:format(IpFile, "~s~n", [ integer_to_list(Part1) ++ integer_to_list(Part2) ++ "   " ++ P2PAddress ++ ": " ++ BestAddress]),
                             ets:insert(MarkTID, {P2PAddress, true}),
                             PeerList = get_connected_peers(SwarmTID, P2PAddress),
                             lists:foreach(
