@@ -1,6 +1,6 @@
 .rebar3
-rebar.loc
-*.debk
+rebar.lock
+*.deb
 _*
 .eunit
 *.o
